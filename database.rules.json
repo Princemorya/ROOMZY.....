@@ -1,0 +1,38 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        "role": {
+          ".validate": "(!data.exists() && (newData.val() === 'tenant' || newData.val() === 'owner')) || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+        }
+      }
+    },
+    "properties": {
+      ".read": "true",
+      "$propertyId": {
+        ".write": "auth != null && (newData.exists() && !data.exists() ? root.child('users').child(auth.uid).child('role').val() === 'owner' : (data.child('ownerId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'))",
+        ".validate": "newData.hasChildren(['ownerId', 'title', 'price', 'type', 'status'])"
+      }
+    },
+    "bookings": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      "$bookingId": {
+        ".read": "auth != null && (data.child('tenantId').val() === auth.uid || data.child('ownerId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (!data.exists() ? root.child('users').child(auth.uid).child('role').val() === 'tenant' : (data.child('ownerId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'))"
+      }
+    },
+    "chats": {
+      "$chatId": {
+        ".read": "auth != null && data.child('participants').val().contains(auth.uid)",
+        ".write": "auth != null && (newData.child('participants').val().contains(auth.uid) || data.child('participants').val().contains(auth.uid))",
+        "messages": {
+          "$msgId": {
+            ".write": "auth != null && (newData.child('senderId').val() === auth.uid)"
+          }
+        }
+      }
+    }
+  }
+}

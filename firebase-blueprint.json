@@ -1,0 +1,131 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Represents a user in the system (Admin, Owner, or Tenant)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "owner", "tenant"] },
+        "photoURL": { "type": "string" },
+        "phone": { "type": "string" },
+        "upiId": { "type": "string" },
+        "bio": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "role", "displayName", "createdAt"]
+    },
+    "Property": {
+      "title": "Property Listing",
+      "description": "A property listed for rent",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "ownerPhoto": { "type": "string" },
+        "ownerUpiId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "location": { "type": "object" },
+        "address": { "type": "string" },
+        "price": { "type": "number" },
+        "type": { "type": "string", "enum": ["room", "pg", "flat", "studio", "house"] },
+        "amenities": { "type": "array" },
+        "images": { "type": "array" },
+        "isAvailable": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["ownerId", "title", "price", "type", "isAvailable", "status", "createdAt"]
+    },
+    "Booking": {
+      "title": "Booking Transaction",
+      "description": "A rental agreement/payment for a property",
+      "type": "object",
+      "properties": {
+        "propertyId": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "completed"] },
+        "amount": { "type": "number" },
+        "paid": { "type": "boolean" },
+        "paymentMethod": { "type": "string" },
+        "transactionId": { "type": "string" },
+        "paymentDate": { "type": "object" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["propertyId", "tenantId", "ownerId", "status", "amount", "createdAt"]
+    },
+    "Chat": {
+      "title": "Chat Session",
+      "description": "A conversation between two users",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array" },
+        "lastMessage": { "type": "string" },
+        "updatedAt": { "type": "number" },
+        "typing": { "type": "object" }
+      }
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "Individual message in a chat",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "read": { "type": "boolean" }
+      }
+    },
+    "Review": {
+      "title": "Property Review",
+      "description": "A review and rating left by a tenant",
+      "type": "object",
+      "properties": {
+        "propertyId": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "tenantName": { "type": "string" },
+        "tenantPhoto": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["propertyId", "tenantId", "rating", "comment", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/properties/{propertyId}": {
+      "schema": "Property",
+      "description": "Property listings"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Rental bookings and payments"
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Chat sessions"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages inside a chat"
+    },
+    "/properties/{propertyId}/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Reviews left by tenants for a property"
+    }
+  }
+}
