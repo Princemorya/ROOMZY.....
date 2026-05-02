@@ -22,7 +22,7 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
           referrerPolicy="no-referrer"
         />
         <div className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-sm font-bold text-neutral-900 shadow-sm">
-          ₹{property.price.toLocaleString()}/mo
+          ₹{Math.round(property.price / 30).toLocaleString()}/day
         </div>
         <div className="absolute left-4 top-4 rounded-full bg-orange-600 px-3 py-1 text-xs font-bold text-white shadow-sm uppercase tracking-wider">
           {property.type}

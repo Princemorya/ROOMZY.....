@@ -12,8 +12,8 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { Property, BookingStatus, UserRole, Review } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import PropertyMap from '@/src/components/PropertyMap';
-import { DayPicker, DateRange } from 'react-day-picker';
-import 'react-day-picker/dist/style.css';
+import { DayPicker, type DateRange } from 'react-day-picker';
+import 'react-day-picker/style.css';
 import { format, addDays, differenceInDays } from 'date-fns';
 
 export default function PropertyDetails() {
@@ -142,6 +142,12 @@ export default function PropertyDetails() {
 
   const confirmBooking = async () => {
     if (!property) return;
+    const nightsCount = dateRange?.from && dateRange?.to 
+      ? Math.max(1, differenceInDays(dateRange.to, dateRange.from)) 
+      : 30; // Default to 30 days if range is partially selected
+    const dailyRate = property.price / 30;
+    const totalAmount = Math.round(dailyRate * nightsCount);
+
     setBookingLoading(true);
     try {
       const transactionId = `TXN-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
@@ -150,7 +156,7 @@ export default function PropertyDetails() {
         tenantId: user!.uid,
         ownerId: property.ownerId,
         status: BookingStatus.COMPLETED,
-        amount: property.price,
+        amount: totalAmount,
         startDate: dateRange?.from?.toISOString() || new Date().toISOString(),
         endDate: dateRange?.to?.toISOString() || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         createdAt: serverTimestamp(),
@@ -484,8 +490,8 @@ export default function PropertyDetails() {
         <div className="lg:col-span-1">
           <div className="sticky top-24 rounded-3xl border border-neutral-100 bg-white p-8 shadow-2xl shadow-neutral-100">
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-extrabold text-neutral-900">₹{property.price.toLocaleString()}</span>
-              <span className="text-neutral-500">/ month</span>
+              <span className="text-3xl font-extrabold text-neutral-900">₹{Math.round(property.price / 30).toLocaleString()}</span>
+              <span className="text-neutral-500">/ day</span>
             </div>
 
             <div className="mt-8 space-y-4">
@@ -622,8 +628,17 @@ export default function PropertyDetails() {
 
                   <div className="space-y-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-100/50">
                     <div className="flex justify-between text-sm">
-                      <span className="text-neutral-500 font-medium">Monthly Rent</span>
-                      <span className="font-bold text-neutral-900">₹{property.price.toLocaleString()}</span>
+                      <span className="text-neutral-500 font-medium items-center flex gap-1">
+                        Daily Rate 
+                        <span className="text-[10px] text-neutral-400 font-normal">(Monthly ₹{property.price.toLocaleString()} / 30)</span>
+                      </span>
+                      <span className="font-bold text-neutral-900">₹{Math.round(property.price / 30).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-500 font-medium">Nights count</span>
+                      <span className="font-bold text-neutral-900">
+                        {dateRange?.from && dateRange?.to ? differenceInDays(dateRange.to, dateRange.from) : '0'} Nights
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-neutral-500 font-medium">Platform Fee</span>
@@ -631,7 +646,9 @@ export default function PropertyDetails() {
                     </div>
                     <div className="border-t border-neutral-200/50 pt-3 flex justify-between items-center">
                       <span className="font-black text-neutral-900 italic tracking-tight uppercase text-xs">Total Amount</span>
-                      <span className="text-2xl font-black text-orange-600 italic tracking-tighter">₹{property.price.toLocaleString()}</span>
+                      <span className="text-2xl font-black text-orange-600 italic tracking-tighter">
+                        ₹{Math.round((property.price / 30) * (dateRange?.from && dateRange?.to ? Math.max(1, differenceInDays(dateRange.to, dateRange.from)) : 0)).toLocaleString()}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -759,7 +776,7 @@ export default function PropertyDetails() {
                     {bookingLoading ? (
                       <><Loader2 className="h-5 w-5 animate-spin" /> Processing...</>
                     ) : (
-                      `Pay ₹${property.price.toLocaleString()}`
+                      `Pay ₹${Math.round((property.price / 30) * (dateRange?.from && dateRange?.to ? Math.max(1, differenceInDays(dateRange.to, dateRange.from)) : 0)).toLocaleString()}`
                     )}
                   </button>
                 </div>

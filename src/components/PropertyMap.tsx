@@ -75,7 +75,7 @@ export default function PropertyMap({ properties, center = [20.5937, 78.9629], z
                   <div className="space-y-1">
                     <h3 className="font-bold text-neutral-900 group-hover:text-orange-600 line-clamp-1">{property.title}</h3>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-orange-600">₹{property.price.toLocaleString()}</span>
+                      <span className="text-xs font-bold text-orange-600">₹{Math.round(property.price / 30).toLocaleString()}/d</span>
                       <div className="flex items-center gap-1 text-[10px] font-bold text-orange-600">
                         <Star className="h-3 w-3 fill-orange-600" />
                         {property.rating || 'New'}

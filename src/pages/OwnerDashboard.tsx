@@ -395,14 +395,16 @@ function PropertyForm() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-bold text-neutral-900 uppercase tracking-wide">Monthly Rent (₹)</label>
+            <label className="text-sm font-bold text-neutral-900 uppercase tracking-wide">Monthly Base Rent (₹)</label>
             <input 
               type="number" 
               required 
+              placeholder="e.g. 15000"
               value={formData.price}
               onChange={e => setFormData({ ...formData, price: Number(e.target.value) })}
               className="mt-2 w-full rounded-xl border border-neutral-200 p-4" 
             />
+            <p className="mt-1 text-[10px] text-neutral-400 italic">This will be displayed as ~₹{Math.round(formData.price / 30)}/day</p>
           </div>
           <div>
             <label className="text-sm font-bold text-neutral-900 uppercase tracking-wide">Type</label>

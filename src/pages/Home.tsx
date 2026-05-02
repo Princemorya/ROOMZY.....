@@ -9,6 +9,7 @@ import { cn } from '@/src/lib/utils';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { UserRole, Property } from '@/src/types';
 import PropertyCard from '@/src/components/PropertyCard';
+import ChatBot from '@/src/components/ChatBot';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -270,6 +271,7 @@ export default function Home() {
           Start Listing for Free
         </button>
       </section>
+      <ChatBot />
     </div>
   );
 }

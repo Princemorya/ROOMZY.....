@@ -517,6 +517,7 @@ function PropertyTable({ properties, onDelete }: { properties: Property[], onDel
           <tr>
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-500">Property</th>
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-500">City</th>
+            <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-500">Price (/day)</th>
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-500">Status</th>
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-500">Actions</th>
           </tr>
@@ -536,6 +537,10 @@ function PropertyTable({ properties, onDelete }: { properties: Property[], onDel
                 </div>
               </td>
               <td className="px-6 py-4 text-sm text-neutral-500">{p.location.city}</td>
+              <td className="px-6 py-4">
+                <div className="text-sm font-bold text-neutral-900">₹{Math.round(p.price / 30).toLocaleString()}</div>
+                <div className="text-[10px] text-neutral-400">₹{p.price.toLocaleString()}/mo</div>
+              </td>
               <td className="px-6 py-4">
                 <span className={cn("rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wider", 
                   p.status === PropertyStatus.ACTIVE ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"

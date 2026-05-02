@@ -50,8 +50,8 @@ export default function SearchResults() {
         }
 
         // Filter by price
-        if (minPrice) filtered = filtered.filter(p => p.price >= Number(minPrice));
-        if (maxPrice) filtered = filtered.filter(p => p.price <= Number(maxPrice));
+        if (minPrice) filtered = filtered.filter(p => (p.price / 30) >= Number(minPrice));
+        if (maxPrice) filtered = filtered.filter(p => (p.price / 30) <= Number(maxPrice));
 
         // Filter by rating
         if (minRating) {
@@ -167,14 +167,14 @@ export default function SearchResults() {
 
             {/* Price Range */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">Price Range (₹)</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">Price Range (₹ / Day)</label>
               <div className="mt-2 flex flex-col gap-2">
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <span className="absolute left-3 top-2.5 text-neutral-400 text-xs">₹</span>
                     <input 
                       type="number" 
-                      placeholder="Min"
+                      placeholder="Min/Day"
                       value={minPrice}
                       onChange={(e) => {
                         const params = new URLSearchParams(searchParams);
@@ -189,7 +189,7 @@ export default function SearchResults() {
                     <span className="absolute left-3 top-2.5 text-neutral-400 text-xs">₹</span>
                     <input 
                       type="number" 
-                      placeholder="Max"
+                      placeholder="Max/Day"
                       value={maxPrice}
                       onChange={(e) => {
                         const params = new URLSearchParams(searchParams);
@@ -304,7 +304,7 @@ export default function SearchResults() {
           )}
           {(minPrice || maxPrice) && (
             <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-3 py-1 text-xs font-bold text-neutral-700">
-              ₹{minPrice || 0} - ₹{maxPrice || '∞'}
+              ₹{minPrice || 0}/d - ₹{maxPrice || '∞'}/d
               <X className="h-3 w-3 cursor-pointer" onClick={() => {
                 const params = new URLSearchParams(searchParams);
                 params.delete('minPrice');
