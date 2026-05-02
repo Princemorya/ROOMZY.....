@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, MapPin, Shield, Star, MessageSquare, Clock } from 'lucide-react';
+import { Search, MapPin, Shield, Star, MessageSquare, Clock, CheckCircle, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, limit, getDocs } from 'firebase/firestore';
@@ -187,89 +187,208 @@ export default function Home() {
         </section>
       )}
 
-      {/* Features Grid */}
-      <section className="px-4">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold text-neutral-900">Why choose RoomZy?</h2>
-          <p className="mt-4 text-neutral-500">We prioritize your comfort and safety above all else.</p>
+      {/* Features Section - Visual Storytelling */}
+      <section className="space-y-32 py-32 px-4 overflow-hidden">
+        <div className="mx-auto max-w-7xl text-center mb-16">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-5xl font-black tracking-tight text-neutral-900 sm:text-7xl uppercase leading-none">
+              A better way <br/> <span className="text-orange-500">to live.</span>
+            </h2>
+            <div className="mt-8 mx-auto h-1 w-24 bg-orange-500" />
+          </motion.div>
         </div>
 
-        <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            {
-              title: 'Verified Listings',
-              desc: 'Every property is hand-picked and verified for quality and safety.',
-              icon: Shield,
-              color: 'text-green-600',
-              bg: 'bg-green-50',
-            },
-            {
-              title: 'Instant Messaging',
-              desc: 'Chat directly with owners to get all your questions answered.',
-              icon: MessageSquare,
-              color: 'text-blue-600',
-              bg: 'bg-blue-50',
-            },
-            {
-              title: 'Secure Payments',
-              desc: 'Hassle-free booking with transparent UPI-based direct payments.',
-              icon: Star,
-              color: 'text-orange-600',
-              bg: 'bg-orange-50',
-            },
-            {
-              title: 'Vibrant Locations',
-              desc: 'Find accommodations in the most student-friendly hubs across India.',
-              icon: MapPin,
-              color: 'text-purple-600',
-              bg: 'bg-purple-50',
-            },
-            {
-              title: 'Real-time Updates',
-              desc: 'Get notified instantly about booking approvals and messages.',
-              icon: Clock,
-              color: 'text-amber-600',
-              bg: 'bg-amber-50',
-            },
-            {
-              title: 'Community Driven',
-              desc: 'Read genuine reviews from thousands of happy tenants.',
-              icon: UserIcon,
-              color: 'text-pink-600',
-              bg: 'bg-pink-50',
-            },
-          ].map((feature, idx) => (
-            <motion.div
-              key={feature.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+        {/* Feature 1: Verified */}
+        <div className="mx-auto max-w-7xl">
+          <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-16 lg:gap-24">
+            <motion.div 
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
-              className="rounded-2xl border border-neutral-100 bg-white p-8 transition-shadow hover:shadow-lg"
+              className="relative aspect-square sm:aspect-video lg:aspect-square overflow-hidden rounded-[3rem] shadow-2xl"
             >
-              <div className={cn("inline-flex rounded-xl p-3", feature.bg, feature.color)}>
-                <feature.icon className="h-6 w-6" />
+              <img 
+                src="https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&q=80&w=1200"
+                className="h-full w-full object-cover transition-transform duration-1000 hover:scale-105"
+                alt="Beautifully designed room"
+              />
+              <div className="absolute top-8 left-8 rounded-2xl bg-white/90 backdrop-blur-md px-6 py-4 shadow-xl">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500 text-white shadow-lg shadow-green-500/20">
+                    <Shield className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Status</p>
+                    <p className="text-sm font-black text-neutral-900">Physically Verified</p>
+                  </div>
+                </div>
               </div>
-              <h3 className="mt-6 text-xl font-bold text-neutral-900">{feature.title}</h3>
-              <p className="mt-2 text-neutral-500">{feature.desc}</p>
             </motion.div>
-          ))}
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <span className="text-xs font-black uppercase tracking-widest text-orange-600">The Quality Standard</span>
+              <h3 className="mt-4 text-4xl font-black uppercase italic leading-none lg:text-6xl text-neutral-900">
+                Rooms you can <br/> <span className="text-orange-500">Trust</span>.
+              </h3>
+              <p className="mt-8 text-xl text-neutral-500 font-medium leading-relaxed">
+                We've personally visited and verified every single property on RoomZy. 
+                From the water pressure to the Wi-Fi speed, we check 42 key points 
+                so you don't have to face any surprises on move-in day.
+              </p>
+              <ul className="mt-8 space-y-4">
+                {['Verified Owner Profiles', 'Physical Site Inspections', 'Authentic Unedited Photos'].map(item => (
+                  <li key={item} className="flex items-center gap-3 text-neutral-900 font-bold">
+                    <CheckCircle className="h-5 w-5 text-orange-500" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          </div>
+        </div>
+
+        {/* Feature 2: Connect - Reversed */}
+        <div className="mx-auto max-w-7xl">
+          <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-16 lg:gap-24">
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="lg:order-2 relative aspect-square sm:aspect-video lg:aspect-square overflow-hidden rounded-[3rem] shadow-2xl"
+            >
+              <img 
+                src="https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&q=80&w=1200"
+                className="h-full w-full object-cover transition-transform duration-1000 hover:scale-105"
+                alt="People interacting happily"
+              />
+              <div className="absolute bottom-8 right-8 rounded-2xl bg-neutral-900/90 backdrop-blur-md px-6 py-4 shadow-xl text-white">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-600 text-white shadow-lg shadow-orange-600/20">
+                    <MessageSquare className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Response</p>
+                    <p className="text-sm font-black italic">Avg. 15 mins</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="lg:order-1"
+            >
+              <span className="text-xs font-black uppercase tracking-widest text-orange-600">Pure Connection</span>
+              <h3 className="mt-4 text-4xl font-black uppercase italic leading-none lg:text-6xl text-neutral-900">
+                Direct to <br/> <span className="text-orange-500">Owners</span>.
+              </h3>
+              <p className="mt-8 text-xl text-neutral-500 font-medium leading-relaxed">
+                Connect with property owners directly through our secure 
+                messaging system. No agents, no brokers, and absolutely no 
+                hidden fees. Negotiate, ask questions, and book instantly.
+              </p>
+              <button 
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="mt-10 group relative flex items-center gap-4 text-neutral-900 font-black uppercase tracking-tighter text-xl overflow-hidden"
+              >
+                Start Browsing
+                <div className="h-px flex-1 bg-neutral-200 transition-all group-hover:bg-orange-500" />
+                <ArrowRight className="h-6 w-6 transition-transform group-hover:translate-x-2" />
+              </button>
+            </motion.div>
+          </div>
+        </div>
+
+        {/* Feature 3: Secure */}
+        <div className="mx-auto max-w-7xl">
+          <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-16 lg:gap-24">
+            <motion.div 
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="relative aspect-square sm:aspect-video lg:aspect-square overflow-hidden rounded-[3rem] shadow-2xl"
+            >
+              <img 
+                src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&q=80&w=1200"
+                className="h-full w-full object-cover transition-transform duration-1000 hover:scale-105"
+                alt="Secure payment illustration"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-orange-500/20 to-transparent" />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <span className="text-xs font-black uppercase tracking-widest text-orange-600">Ironclad Security</span>
+              <h3 className="mt-4 text-4xl font-black uppercase italic leading-none lg:text-6xl text-neutral-900">
+                Protected <br/> <span className="text-orange-500">Payments</span>.
+              </h3>
+              <p className="mt-8 text-xl text-neutral-500 font-medium leading-relaxed">
+                Your money is safe with our secure escrow system. 
+                Pay via any UPI app or bank transfer. Your payment is released 
+                to the owner only after you've successfully moved in and 
+                verified the room yourself.
+              </p>
+              <div className="mt-10 flex flex-wrap gap-4">
+                {['Bank Level Security', '100% Refund Policy', 'Direct Settlement'].map(badge => (
+                  <span key={badge} className="rounded-full bg-neutral-100 px-6 py-2 text-xs font-black uppercase tracking-widest text-neutral-500">
+                    {badge}
+                  </span>
+                ))}
+              </div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="rounded-3xl bg-neutral-900 px-8 py-16 text-center text-white">
-        <h2 className="text-3xl font-bold sm:text-4xl">Are you a property owner?</h2>
-        <p className="mx-auto mt-4 max-w-2xl text-neutral-400">
-          Reach thousands of qualified tenants looking for high-quality PGs and rooms. 
-          Manage your listings, track earnings, and communicate easily.
-        </p>
-        <button 
-          onClick={() => navigate('/signup?role=owner')}
-          className="mt-8 rounded-full bg-white px-10 py-4 font-bold text-neutral-900 transition-colors hover:bg-orange-50"
-        >
-          Start Listing for Free
-        </button>
+      <section className="relative overflow-hidden rounded-[3rem] bg-neutral-900 px-8 py-24 text-center text-white">
+        {/* Background Image with Overlay */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=2000"
+            className="h-full w-full object-cover opacity-40 brightness-75 transition-transform duration-1000 hover:scale-110"
+            alt="Modern premium building"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-neutral-900 via-neutral-900/40 to-neutral-900" />
+          <div className="absolute inset-0 bg-neutral-900/20" />
+        </div>
+
+        {/* Content */}
+        <div className="relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+          >
+            <h2 className="text-4xl font-black italic tracking-tighter sm:text-6xl uppercase leading-none">
+              Are you a <span className="text-orange-500">property owner</span>?
+            </h2>
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-neutral-300 font-medium leading-relaxed">
+              Join India's fastest growing premium rental network. 
+              Reach thousands of qualified tenants looking for high-quality rooms and smart management.
+            </p>
+            <div className="mt-12 flex flex-wrap justify-center gap-6">
+              <button 
+                onClick={() => navigate('/signup?role=owner')}
+                className="group relative overflow-hidden rounded-full bg-white px-12 py-5 font-black uppercase text-neutral-900 transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-white/5"
+              >
+                <span className="relative z-10">Start Listing for Free</span>
+                <div className="absolute inset-0 -translate-x-full bg-orange-50 transition-transform group-hover:translate-x-0" />
+              </button>
+            </div>
+          </motion.div>
+        </div>
       </section>
       <ChatBot />
     </div>
