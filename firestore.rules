@@ -24,8 +24,9 @@ service cloud.firestore {
     
     function isAdmin() { 
       return isSignedIn() && (
-        request.auth.token.email == 'pmconsultancy2024@gmail.com' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        request.auth.token.get('email', '') == 'pmconsultancy2024@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin') ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       ); 
     }
 
@@ -80,11 +81,23 @@ service cloud.firestore {
       allow get: if isSignedIn();
       allow list: if isAdmin();
       allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) &&
-                    incoming().uid == request.auth.uid && incoming().email == request.auth.token.email;
+                    incoming().uid == request.auth.uid && 
+                    (incoming().get('email', '') == '' || incoming().email == request.auth.token.get('email', ''));
       allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) && 
                     (
                       isAdmin() ||
-                      (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'upiId', 'bio', 'photoURL', 'updatedAt']))
+                      (isOwner(userId) && 
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'phone', 'upiId', 'bio', 'photoURL', 
+                         'governmentIdUrl', 'verificationStatus', 'updatedAt'
+                       ]) &&
+                       // Owner can only move to 'pending' or keep current status
+                       (
+                         incoming().get('verificationStatus', 'unverified') == existing().get('verificationStatus', 'unverified') || 
+                         (incoming().get('verificationStatus', 'unverified') == 'pending' && 
+                          existing().get('verificationStatus', 'unverified') in ['unverified', 'rejected'])
+                       )
+                      )
                     ) &&
                     (!incoming().has('updatedAt') || incoming().updatedAt == request.time || incoming().updatedAt is number);
       allow delete: if isAdmin();

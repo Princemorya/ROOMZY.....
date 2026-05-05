@@ -3,13 +3,14 @@ import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom'
 import { motion } from 'motion/react';
 import { 
   BarChart3, Home, PlusCircle, Calendar, MessageSquare, 
-  MapPin, Check, X, ArrowUpRight, TrendingUp, Users, Wallet, Trash2, IndianRupee, CreditCard, Smartphone
+  MapPin, Check, X, ArrowUpRight, TrendingUp, Users, Wallet, Trash2, IndianRupee, CreditCard, Smartphone,
+  Shield, FileText, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { collection, query, where, getDocs, doc, updateDoc, addDoc, getDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, handleFirestoreError, OperationType } from '@/src/lib/firebase';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { Property, Booking, BookingStatus, PropertyStatus, UserRole } from '@/src/types';
+import { Property, Booking, BookingStatus, PropertyStatus, UserRole, VerificationStatus } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 import { AMENITIES_LIST, CITIES, PROPERTY_TYPES, CITY_COORDINATES } from '@/src/constants';
 import { Upload, Camera } from 'lucide-react';
@@ -22,6 +23,7 @@ export default function OwnerDashboard() {
     { name: 'Overview', path: '/owner', icon: BarChart3 },
     { name: 'My Listings', path: '/owner/listings', icon: Home },
     { name: 'Bookings', path: '/owner/bookings', icon: Calendar },
+    { name: 'Identity', path: '/owner/identity', icon: Shield },
     { name: 'Earnings', path: '/owner/payments', icon: IndianRupee },
   ];
 
@@ -60,6 +62,7 @@ export default function OwnerDashboard() {
         <Route path="/listings" element={<ListingsManagement />} />
         <Route path="/listings/new" element={<PropertyForm />} />
         <Route path="/bookings" element={<OwnerBookings />} />
+        <Route path="/identity" element={<IdentityVerification />} />
         <Route path="/payments" element={<OwnerPayments />} />
       </Routes>
     </div>
@@ -92,7 +95,7 @@ function Overview() {
         
         setStats({ earnings, active: activeCount, totalBookings });
       } catch (err) {
-        console.error(err);
+        handleFirestoreError(err, OperationType.GET, 'properties/bookings');
       }
     };
     fetchStats();
@@ -571,7 +574,7 @@ function OwnerBookings() {
           return d2 - d1;
         }));
       } catch (err) {
-        console.error(err);
+        handleFirestoreError(err, OperationType.GET, 'bookings');
       } finally {
         setLoading(false);
       }
@@ -589,7 +592,7 @@ function OwnerBookings() {
       await updateDoc(doc(db, 'bookings', id), updateData);
       setBookings(prev => prev.map(b => b.id === id ? { ...b, ...updateData, updatedAt: Date.now() } : b));
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.UPDATE, `bookings/${id}`);
     }
   };
 
@@ -759,6 +762,299 @@ function OwnerPayments() {
             No completed payments received yet.
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function IdentityVerification() {
+  const { user, profile } = useAuth();
+  const [uploading, setUploading] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    if (e.target.files?.[0]) setFile(e.target.files[0]);
+  };
+
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const handleUpload = async () => {
+    if (!user || !file) {
+      console.warn("Upload aborted: No user or file selected.");
+      return;
+    }
+    
+    console.log("Starting upload for file:", file.name, "Size:", file.size);
+    setUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      const { uploadBytes, getDownloadURL } = await import('firebase/storage');
+      const fileName = `id_${user.uid}_${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+      const storagePath = `verifications/${user.uid}/${fileName}`;
+      const storageRef = ref(storage, storagePath);
+      
+      console.log("Starting Direct Upload to:", storagePath);
+      
+      // Use a timeout for the entire upload operation
+      const uploadPromise = uploadBytes(storageRef, file);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("STORAGE_STALLED")), 300000)
+      );
+
+      setUploadProgress(40);
+      const snapshot = await Promise.race([uploadPromise, timeoutPromise]) as any;
+      console.log("Upload completed:", snapshot);
+
+      setUploadProgress(80);
+      const downloadUrl = await getDownloadURL(storageRef);
+      console.log("Download URL obtained:", downloadUrl);
+      
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        governmentIdUrl: downloadUrl,
+        verificationStatus: VerificationStatus.PENDING,
+        updatedAt: serverTimestamp()
+      });
+      
+      setUploadProgress(100);
+      await new Promise(res => setTimeout(res, 1000));
+      setIsSubmitted(true);
+      setFile(null);
+    } catch (err: any) {
+      console.error("Upload Error Details:", err);
+      
+      let message = err.message || "Unknown error";
+      const isStalled = err.message === "STORAGE_STALLED" || err.code === "storage/retry-limit-exceeded";
+
+      if (isStalled) {
+        const bucket = storage.app.options.storageBucket || 'unknown-bucket';
+        const projectId = storage.app.options.projectId;
+        message = `Firebase Storage is NOT enabled or is still provisioning.
+        
+CRITICAL STEPS TO FIX:
+1. Open this link: https://console.firebase.google.com/project/${projectId}/storage
+2. If you see "Get Started", click it and follow the setup (use Default location).
+3. If it is already enabled, go to the "Rules" tab and ensure they look like:
+   allow read, write: if request.auth != null;
+4. Wait 1-2 minutes for changes to propagate, then try again.`;
+        setError(message);
+      } else {
+        try {
+          handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}/verification`);
+        } catch (handleErr: any) {
+          message = handleErr.message;
+        }
+        alert("Verification Failed: " + (message.includes('{') ? "Permission Denied" : message));
+      }
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const status = profile?.verificationStatus || VerificationStatus.UNVERIFIED;
+
+  if (isSubmitted) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="rounded-3xl border border-neutral-100 bg-white p-12 text-center"
+        >
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-50 text-green-600">
+            <CheckCircle className="h-10 w-10" />
+          </div>
+          <h2 className="text-2xl font-black uppercase tracking-tighter text-neutral-900">Document Submitted</h2>
+          <p className="mt-4 text-neutral-500">Your government ID has been securely uploaded. Our administrative team will verify your identity within 24-48 hours.</p>
+          <button 
+            onClick={() => setIsSubmitted(false)}
+            className="mt-8 rounded-2xl bg-neutral-900 px-8 py-3 text-xs font-black uppercase tracking-widest text-white hover:bg-orange-600 transition-all"
+          >
+            Back to Identity
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-8">
+      <div className="rounded-3xl border border-neutral-100 bg-white p-8">
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+            <Shield className="h-8 w-8" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-neutral-900">Identity Verification</h2>
+            <p className="text-sm text-neutral-500">Verify your identity to increase trust and unlock premium features.</p>
+          </div>
+        </div>
+
+        <div className="mt-10 space-y-6">
+          {error && (
+            <div className="rounded-2xl bg-red-50 p-6 border border-red-100 overflow-hidden">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-black text-red-600 uppercase tracking-widest mb-2">Upload Issue</h3>
+                  <div className="text-sm text-red-700 whitespace-pre-wrap font-medium break-words leading-relaxed">{error}</div>
+                  <button 
+                    onClick={() => { setError(null); handleUpload(); }}
+                    className="mt-4 rounded-xl bg-red-600 px-4 py-2 text-xs font-black uppercase tracking-widest text-white hover:bg-red-700 transition-all shadow-lg shadow-red-100"
+                  >
+                    Retry Now
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className={cn(
+            "rounded-2xl p-6 flex items-center justify-between",
+            status === 'verified' ? "bg-green-50 border border-green-100" :
+            status === 'pending' ? "bg-orange-50 border border-orange-100" :
+            status === 'rejected' ? "bg-red-50 border border-red-100" :
+            "bg-neutral-50 border border-neutral-100"
+          )}>
+            <div className="flex items-center gap-3">
+              {status === 'verified' ? <CheckCircle className="h-5 w-5 text-green-600" /> : 
+               status === 'pending' ? <Calendar className="h-5 w-5 text-orange-600 animate-pulse" /> :
+               status === 'rejected' ? <X className="h-5 w-5 text-red-600" /> :
+               <AlertCircle className="h-5 w-5 text-neutral-400" />}
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-0.5">Current Status</span>
+                <span className={cn("text-xs font-black uppercase tracking-tighter", 
+                  status === 'verified' ? "text-green-600" : 
+                  status === 'pending' ? "text-orange-600" :
+                  status === 'rejected' ? "text-red-600" : "text-neutral-500"
+                )}>
+                  {status}
+                </span>
+              </div>
+            </div>
+            {status === 'unverified' || status === 'rejected' ? (
+              <label className="cursor-pointer bg-neutral-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-orange-600 transition-all uppercase tracking-widest shadow-lg shadow-neutral-100">
+                {status === 'rejected' ? 'Re-upload ID' : 'Upload ID'}
+                <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleFileChange} />
+              </label>
+            ) : status === 'pending' ? (
+              <span className="text-[10px] font-black uppercase tracking-widest text-orange-400 italic">Review in progress</span>
+            ) : (
+              <span className="text-[10px] font-black uppercase tracking-widest text-green-600 italic">Identity Secured</span>
+            )}
+          </div>
+
+          {profile?.verificationComment && status === 'rejected' && (
+            <div className="rounded-2xl bg-red-50 p-6 border border-red-100">
+               <div className="flex items-center gap-2 mb-2">
+                 <AlertCircle className="h-4 w-4 text-red-600" />
+                 <p className="text-xs font-black text-red-600 uppercase tracking-widest">Rejection Reason</p>
+               </div>
+               <p className="text-sm text-red-700 font-medium">{profile.verificationComment}</p>
+            </div>
+          )}
+
+          {profile?.governmentIdUrl && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black uppercase tracking-widest text-neutral-400">Uploaded Document</h3>
+                {status === 'verified' && (
+                   <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700 uppercase">
+                     <Check className="h-3 w-3" /> Encrypted & Secured
+                   </span>
+                )}
+              </div>
+              <div className="relative aspect-video rounded-3xl border border-neutral-100 bg-neutral-50 overflow-hidden group shadow-inner">
+                <img 
+                  referrerPolicy="no-referrer"
+                  src={profile.governmentIdUrl} 
+                  alt="Government ID" 
+                  className={cn(
+                    "h-full w-full object-contain transition-all duration-500",
+                    status === 'verified' ? "blur-sm grayscale opacity-50" : ""
+                  )}
+                />
+                {status === 'verified' && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/10 backdrop-blur-[2px]">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-600 text-white shadow-xl shadow-green-100 animate-bounce-slow">
+                      <Shield className="h-8 w-8" />
+                    </div>
+                    <p className="mt-4 text-xs font-black text-neutral-900 uppercase tracking-widest">Verified Identity</p>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+                <a 
+                  href={profile.governmentIdUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="absolute bottom-6 right-6 flex items-center gap-2 rounded-2xl bg-white/95 backdrop-blur-md px-6 py-3 text-xs font-black text-neutral-900 shadow-2xl opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0"
+                >
+                  <ArrowUpRight className="h-4 w-4" />
+                  View Original
+                </a>
+              </div>
+            </div>
+          )}
+
+          {file && (status === 'unverified' || status === 'rejected') && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl border border-neutral-100 bg-neutral-50/50 p-6"
+            >
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-white border border-neutral-200 flex items-center justify-center text-neutral-400">
+                  <FileText className="h-6 w-6" />
+                </div>
+                <div className="flex-grow min-w-0">
+                  <p className="font-bold text-neutral-900 truncate">{file.name}</p>
+                  <p className="text-xs text-neutral-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+                <button 
+                  onClick={handleUpload}
+                  disabled={uploading}
+                  className="bg-orange-600 text-white px-6 py-2 rounded-xl text-sm font-black uppercase tracking-widest hover:bg-orange-700 disabled:opacity-50 relative overflow-hidden"
+                >
+                  <span className="relative z-10">
+                    {uploading ? `Uploading ${uploadProgress}%` : 'Submit'}
+                  </span>
+                  {uploading && (
+                    <motion.div 
+                      className="absolute inset-0 bg-orange-500"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress}%` }}
+                      transition={{ duration: 0.2 }}
+                    />
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          <div className="space-y-4 pt-4 border-t border-neutral-100">
+            <h3 className="text-xs font-black uppercase tracking-widest text-neutral-400">Guidelines</h3>
+            <ul className="space-y-3">
+              {[
+                { label: 'Document Type', value: 'Government issued Aadhaar, PAN, or Passport.' },
+                { label: 'Quality', value: 'Ensure the image is clear and text is readable.' },
+                { label: 'Privacy', value: 'We use 256-bit encryption. Your document is safe.' }
+              ].map(item => (
+                <li key={item.label} className="flex items-start gap-3">
+                  <div className="h-1.5 w-1.5 rounded-full bg-orange-600 mt-1.5 shrink-0" />
+                  <div>
+                    <span className="text-xs font-black uppercase text-neutral-900">{item.label}:</span>
+                    <span className="text-xs text-neutral-500 ml-1">{item.value}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );

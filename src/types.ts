@@ -16,15 +16,25 @@ export enum PropertyStatus {
   INACTIVE = 'inactive',
 }
 
+export enum VerificationStatus {
+  UNVERIFIED = 'unverified',
+  PENDING = 'pending',
+  VERIFIED = 'verified',
+  REJECTED = 'rejected',
+}
+
 export interface UserProfile {
   uid: string;
-  email: string;
+  email?: string;
+  phoneNumber?: string;
   role: UserRole;
   displayName: string;
   photoURL?: string;
-  phone?: string;
   upiId?: string; // Only for owners
   bio?: string;
+  governmentIdUrl?: string; // URL to uploaded ID
+  verificationStatus?: VerificationStatus;
+  verificationComment?: string;
   createdAt: number;
 }
 
