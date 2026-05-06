@@ -78,7 +78,7 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming());
       allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'upiId', 'bio', 'photoURL', 'updatedAt']) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'upiId', 'bio', 'photoURL', 'updatedAt']) &&
                     (!incoming().has('updatedAt') || incoming().updatedAt == request.time);
       allow delete: if isAdmin();
     }

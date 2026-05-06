@@ -16,25 +16,14 @@ export enum PropertyStatus {
   INACTIVE = 'inactive',
 }
 
-export enum VerificationStatus {
-  UNVERIFIED = 'unverified',
-  PENDING = 'pending',
-  VERIFIED = 'verified',
-  REJECTED = 'rejected',
-}
-
 export interface UserProfile {
   uid: string;
-  email?: string;
-  phoneNumber?: string;
+  email: string;
   role: UserRole;
   displayName: string;
   photoURL?: string;
   upiId?: string; // Only for owners
   bio?: string;
-  governmentIdUrl?: string; // URL to uploaded ID
-  verificationStatus?: VerificationStatus;
-  verificationComment?: string;
   createdAt: number;
 }
 
@@ -75,7 +64,6 @@ export interface Booking {
   amount: number;
   createdAt: number;
   ownerUpiId?: string;
-  ownerPhone?: string;
   paid?: boolean;
   paymentMethod?: 'upi' | 'card' | 'wallet';
   transactionId?: string;

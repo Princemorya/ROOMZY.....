@@ -9,9 +9,9 @@ service cloud.firestore {
     // --- Helpers ---
     function isSignedIn() { return request.auth != null; }
     
-    // Softened for development to prevent blocking users like renter1@gmail.com
+    // Enforce email verification for standard writes
     function isVerified() { 
-      return true; 
+      return isSignedIn() && request.auth.token.email_verified == true; 
     }
 
     function isValidId(id) { 
@@ -24,9 +24,8 @@ service cloud.firestore {
     
     function isAdmin() { 
       return isSignedIn() && (
-        request.auth.token.get('email', '') == 'pmconsultancy2024@gmail.com' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin') ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        request.auth.token.email == 'pmconsultancy2024@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       ); 
     }
 
@@ -81,23 +80,11 @@ service cloud.firestore {
       allow get: if isSignedIn();
       allow list: if isAdmin();
       allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) &&
-                    incoming().uid == request.auth.uid && 
-                    (incoming().get('email', '') == '' || incoming().email == request.auth.token.get('email', ''));
+                    incoming().uid == request.auth.uid && incoming().email == request.auth.token.email;
       allow update: if isSignedIn() && (isOwner(userId) || isAdmin()) && 
                     (
                       isAdmin() ||
-                      (isOwner(userId) && 
-                       incoming().diff(existing()).affectedKeys().hasOnly([
-                         'displayName', 'phone', 'upiId', 'bio', 'photoURL', 
-                         'governmentIdUrl', 'verificationStatus', 'updatedAt'
-                       ]) &&
-                       // Owner can only move to 'pending' or keep current status
-                       (
-                         incoming().get('verificationStatus', 'unverified') == existing().get('verificationStatus', 'unverified') || 
-                         (incoming().get('verificationStatus', 'unverified') == 'pending' && 
-                          existing().get('verificationStatus', 'unverified') in ['unverified', 'rejected'])
-                       )
-                      )
+                      (isOwner(userId) && isVerified() && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'upiId', 'bio', 'photoURL', 'updatedAt']))
                     ) &&
                     (!incoming().has('updatedAt') || incoming().updatedAt == request.time || incoming().updatedAt is number);
       allow delete: if isAdmin();
@@ -105,22 +92,22 @@ service cloud.firestore {
 
     match /properties/{propertyId} {
       allow read: if true;
-      allow create: if isSignedIn() && isValidProperty(incoming()) && isValidId(propertyId) &&
+      allow create: if isVerified() && isValidProperty(incoming()) && isValidId(propertyId) &&
                     incoming().ownerId == request.auth.uid;
-      allow update: if isSignedIn() && (isOwner(existing().ownerId) || isAdmin()) &&
+      allow update: if (isVerified() || isAdmin()) && (isOwner(existing().ownerId) || isAdmin()) &&
                     (
                       isAdmin() ||
                       incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'location', 'address', 'price', 'type', 'amenities', 'images', 'isAvailable', 'status', 'updatedAt', 'ownerUpiId', 'ownerName', 'ownerPhoto'])
                     ) &&
                     (!incoming().has('updatedAt') || incoming().updatedAt == request.time || incoming().updatedAt is number);
-      allow delete: if isAdmin() || (isSignedIn() && isOwner(existing().ownerId));
+      allow delete: if isAdmin() || (isVerified() && isOwner(existing().ownerId));
     }
 
     match /bookings/{bookingId} {
       allow get, list: if isSignedIn() && (isBookingParticipant(resource.data) || isAdmin());
-      allow create: if isSignedIn() && isValidBooking(incoming()) && 
+      allow create: if isVerified() && isValidBooking(incoming()) && 
                     incoming().tenantId == request.auth.uid;
-      allow update: if isSignedIn() && (isBookingParticipant(existing()) || isAdmin()) &&
+      allow update: if (isVerified() || isAdmin()) && (isBookingParticipant(existing()) || isAdmin()) &&
                     (
                       (request.auth.uid == existing().tenantId && 
                        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paid', 'paymentMethod', 'transactionId', 'paymentDate', 'updatedAt', 'ownerUpiId'])) ||
@@ -140,19 +127,19 @@ service cloud.firestore {
 
     match /chats/{chatId}/messages/{messageId} {
       allow read: if isSignedIn() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants || isAdmin());
-      allow create: if isSignedIn() && isVerified() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants) &&
+      allow create: if isVerified() && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants) &&
                     incoming().senderId == request.auth.uid;
     }
 
     match /properties/{propertyId}/reviews/{reviewId} {
       allow read: if true;
-      allow create: if isSignedIn() && isValidReview(incoming()) && 
+      allow create: if isVerified() && isValidReview(incoming()) && 
                     incoming().tenantId == request.auth.uid &&
                     incoming().propertyId == propertyId;
-      allow update: if isSignedIn() && (isOwner(existing().tenantId) || isAdmin()) &&
+      allow update: if (isVerified() || isAdmin()) && (isOwner(existing().tenantId) || isAdmin()) &&
                     isValidReview(incoming()) &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['comment', 'rating', 'updatedAt']);
-      allow delete: if isAdmin() || (isSignedIn() && isOwner(existing().tenantId));
+      allow delete: if isAdmin() || (isVerified() && isOwner(existing().tenantId));
     }
 
     match /admins/{userId} {

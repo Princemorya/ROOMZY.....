@@ -4,15 +4,15 @@ import {
   Users, Home, Shield, AlertTriangle, 
   Trash2, CheckCircle, Search, Database, Plus, IndianRupee, CreditCard, Smartphone
 } from 'lucide-react';
-import { collection, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where, getDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase';
-import { UserProfile, Property, PropertyStatus, UserRole, Booking, VerificationStatus } from '@/src/types';
+import { UserProfile, Property, PropertyStatus, UserRole, Booking } from '@/src/types';
 import { cn, formatDate, getTimestamp } from '@/src/lib/utils';
 import { CITIES } from '@/src/constants';
 
 export default function AdminDashboard() {
   const { user, profile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'properties' | 'payments' | 'verifications'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'properties' | 'payments'>('users');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [payments, setPayments] = useState<(Booking & { tenant?: any; property?: any })[]>([]);
@@ -46,7 +46,7 @@ export default function AdminDashboard() {
       }));
       setPayments(payData.sort((a, b) => getTimestamp(b.paymentDate) - getTimestamp(a.paymentDate)));
     } catch (err: any) {
-      handleFirestoreError(err, OperationType.GET, 'admin/all-data');
+      console.error(err);
       setError("Permission denied: You do not have administrative privileges to access this data.");
     } finally {
       setLoading(false);
@@ -204,27 +204,12 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const isActuallyAdmin = profile?.role === UserRole.ADMIN || user?.email === 'pmconsultancy2024@gmail.com';
-    if (!isActuallyAdmin) {
-      if (profile) {
-        setError("Access Denied: You do not have permissions to view this dashboard.");
-        setLoading(false);
-      }
-      return;
+    if (isActuallyAdmin) {
+      fetchData();
+    } else if (profile) {
+      setError("Access Denied: You do not have permissions to view this dashboard.");
+      setLoading(false);
     }
-
-    // Use snapshot for users to get real-time verification requests
-    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      setUsers(snapshot.docs.map(d => ({ ...d.data(), uid: d.id } as UserProfile)));
-    }, (err) => {
-      handleFirestoreError(err, OperationType.GET, 'users');
-      setError("Failed to stream user data.");
-    });
-
-    fetchData(); // Fetch initial data for properties/payments
-
-    return () => {
-      unsubscribeUsers();
-    };
   }, [profile, user]);
 
   const handleDeleteUser = async (uid: string) => {
@@ -378,12 +363,6 @@ export default function AdminDashboard() {
           Manage Properties ({properties.length})
         </button>
         <button 
-          onClick={() => setActiveTab('verifications')}
-          className={cn("pb-4 text-sm font-bold transition-all px-2", activeTab === 'verifications' ? "text-orange-600 border-b-2 border-orange-600" : "text-neutral-400 hover:text-neutral-900")}
-        >
-          Verifications ({users.filter(u => u.verificationStatus === VerificationStatus.PENDING).length})
-        </button>
-        <button 
           onClick={() => setActiveTab('payments')}
           className={cn("pb-4 text-sm font-bold transition-all px-2", activeTab === 'payments' ? "text-orange-600 border-b-2 border-orange-600" : "text-neutral-400 hover:text-neutral-900")}
         >
@@ -397,8 +376,6 @@ export default function AdminDashboard() {
         <UserTable users={users} onToggleRole={handleToggleUserRole} onDeleteUser={handleDeleteUser} />
       ) : activeTab === 'properties' ? (
         <PropertyTable properties={properties} onDelete={handleDeleteProperty} />
-      ) : activeTab === 'verifications' ? (
-        <VerificationInbox users={users} onUpdate={fetchData} />
       ) : (
         <PaymentTable payments={payments} />
       )}
@@ -584,97 +561,6 @@ function PropertyTable({ properties, onDelete }: { properties: Property[], onDel
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function VerificationInbox({ users, onUpdate }: { users: UserProfile[], onUpdate: () => void }) {
-  const pendingUsers = users.filter(u => 
-    u.verificationStatus === VerificationStatus.PENDING || 
-    (u.governmentIdUrl && (!u.verificationStatus || u.verificationStatus === VerificationStatus.UNVERIFIED))
-  );
-
-  const handleAction = async (uid: string, status: VerificationStatus) => {
-    let comment = "";
-    if (status === VerificationStatus.REJECTED) {
-      comment = window.prompt("Reason for rejection:") || "Invalid document provided.";
-    }
-    
-    try {
-      await updateDoc(doc(db, 'users', uid), {
-        verificationStatus: status,
-        verificationComment: comment,
-        updatedAt: Date.now()
-      });
-      alert(`User status updated to ${status}`);
-      onUpdate();
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
-      alert("Update failed.");
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-6">
-        {pendingUsers.map(user => (
-          <div key={user.uid} className="rounded-3xl border border-neutral-100 bg-white p-6 shadow-sm flex flex-col md:flex-row gap-6">
-            <div className="flex-grow space-y-4">
-              <div className="flex items-center gap-4">
-                 <div className="h-12 w-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-xl">
-                  {user.displayName ? user.displayName[0] : 'U'}
-                </div>
-                <div>
-                  <h3 className="font-bold text-neutral-900">{user.displayName}</h3>
-                  <p className="text-xs text-neutral-500">{user.email}</p>
-                </div>
-              </div>
-              <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-orange-600" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-neutral-400">Government ID Document</span>
-                </div>
-                <a 
-                  href={user.governmentIdUrl} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="text-xs font-black text-orange-600 hover:text-orange-700 flex items-center gap-1 bg-white px-3 py-1 rounded-lg shadow-sm border border-neutral-100"
-                >
-                  <Search className="h-3 w-3" />
-                  View Document
-                </a>
-              </div>
-            </div>
-            
-            <div className="flex md:flex-col justify-center gap-3 shrink-0">
-              <button 
-                onClick={() => handleAction(user.uid, VerificationStatus.VERIFIED)}
-                className="flex items-center justify-center gap-2 rounded-xl bg-neutral-900 px-6 py-3 text-xs font-black text-white hover:bg-neutral-800 transition-all uppercase tracking-widest"
-              >
-                <CheckCircle className="h-4 w-4" />
-                Approve
-              </button>
-              <button 
-                onClick={() => handleAction(user.uid, VerificationStatus.REJECTED)}
-                className="flex items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-6 py-3 text-xs font-black text-red-600 hover:bg-red-100 transition-all uppercase tracking-widest"
-              >
-                <Trash2 className="h-4 w-4" />
-                Reject
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {pendingUsers.length === 0 && (
-          <div className="py-20 text-center flex flex-col items-center justify-center bg-white rounded-3xl border border-dashed border-neutral-200">
-             <div className="h-16 w-16 bg-neutral-50 rounded-full flex items-center justify-center text-neutral-400 mb-4">
-              <Shield className="h-8 w-8" />
-            </div>
-            <h3 className="text-lg font-bold text-neutral-900 italic tracking-tight">Inbox Zero</h3>
-            <p className="text-neutral-400 text-sm mt-1">No pending verification requests at the moment.</p>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

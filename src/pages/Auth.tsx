@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useSearchParams, useNavigate, Link, useLocation } from 'react-router-dom';
-import { Mail, Lock, User, Home, ArrowRight, Shield, CheckCircle2, Sparkles, Smartphone, Check, AlertTriangle } from 'lucide-react';
+import { Mail, Lock, User, Home, ArrowRight, Shield, CheckCircle2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signInWithPopup,
   updateProfile,
-  ConfirmationResult
+  sendEmailVerification,
+  fetchSignInMethodsForEmail
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db, googleProvider, handleFirestoreError, OperationType, RecaptchaVerifier, signInWithPhoneNumber } from '@/src/lib/firebase';
+import { auth, db, googleProvider, handleFirestoreError, OperationType } from '@/src/lib/firebase';
 import { UserRole, UserProfile } from '@/src/types';
 import { cn } from '@/src/lib/utils';
 
@@ -23,26 +24,44 @@ export default function Auth() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
   
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    displayName: '',
-    phoneNumber: '',
-    otp: ''
+    displayName: ''
   });
 
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
+  const [isValidatingEmail, setIsValidatingEmail] = useState(false);
+  const [emailValidationStatus, setEmailValidationStatus] = useState<'idle' | 'valid' | 'invalid' | 'checking'>('idle');
 
-  useEffect(() => {
-    return () => {
-      if (recaptchaVerifier.current) {
-        recaptchaVerifier.current.clear();
+  const validateEmailId = async () => {
+    if (!formData.email || !formData.email.includes('@')) {
+      setError('Please enter a valid email address first.');
+      setEmailValidationStatus('invalid');
+      return;
+    }
+
+    setIsValidatingEmail(true);
+    setEmailValidationStatus('checking');
+    setError(null);
+
+    try {
+      // In some Firebase configs, this might be restricted. If so, we'll fall back to just format check.
+      const methods = await fetchSignInMethodsForEmail(auth, formData.email).catch(() => []);
+      
+      if (methods.length > 0) {
+        setError('This email is already registered. Please sign in instead.');
+        setEmailValidationStatus('invalid');
+      } else {
+        setEmailValidationStatus('valid');
       }
-    };
-  }, []);
+    } catch (err: any) {
+      // If restricted by Firebase (enum protection), just assume valid format is enough for this step
+      setEmailValidationStatus('valid');
+    } finally {
+      setIsValidatingEmail(false);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -55,8 +74,7 @@ export default function Auth() {
     if (!userSnap.exists()) {
       const profile: UserProfile = {
         uid: user.uid,
-        email: user.email || '',
-        phoneNumber: user.phoneNumber || '',
+        email: user.email!,
         role: userRole,
         displayName: name || user.displayName || 'User',
         photoURL: user.photoURL || '',
@@ -85,122 +103,8 @@ export default function Auth() {
     }
   };
 
-  const initRecaptcha = () => {
-    try {
-      // 1. Defensively clear existing verifier
-      if (recaptchaVerifier.current) {
-        try {
-          recaptchaVerifier.current.clear();
-        } catch (e) {
-          // Ignore clearing errors
-        }
-        recaptchaVerifier.current = null;
-      }
-
-      // 2. Reset the DOM container with a fresh target ID
-      const container = document.getElementById('recaptcha-container');
-      if (container) {
-        container.innerHTML = '<div id="recaptcha-target"></div>';
-      }
-
-      // 3. Initialize on the fresh element
-      recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-target', {
-        size: 'invisible',
-        callback: () => {
-          console.log('reCAPTCHA verified');
-        },
-        'expired-callback': () => {
-          initRecaptcha();
-        }
-      });
-    } catch (err) {
-      console.error("Critical Recaptcha init error:", err);
-    }
-  };
-
-  const handlePhoneAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.phoneNumber) return setError("Phone number is required");
-    
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      initRecaptcha();
-      if (!recaptchaVerifier.current) {
-        throw new Error("Safety check failed to load. Please refresh the page.");
-      }
-      const appVerifier = recaptchaVerifier.current;
-      const result = await signInWithPhoneNumber(auth, formData.phoneNumber, appVerifier);
-      setConfirmationResult(result);
-    } catch (err: any) {
-      console.error("Phone Auth Error Breakdown:", err);
-      
-      const isBillingError = err.code === 'auth/billing-not-enabled';
-      const isRateLimit = err.code === 'auth/too-many-requests';
-
-      if (isBillingError) {
-        setError(
-          "🚨 ACTION REQUIRED: Firebase Billing (Blaze Plan) is not enabled for SMS. " +
-          "To fix this WITHOUT paying: 1. Go to Firebase Console > Auth > Sign-in Method. " +
-          "2. Scroll to 'Phone numbers for testing'. " +
-          "3. Add your number (e.g. +91 99999 99999) and a fixed code (e.g. 123456). " +
-          "4. Use that test number here."
-        );
-      } else if (isRateLimit) {
-        setError(
-          "Rate Limit Exceeded. Firebase blocks frequent requests to prevent spam. " +
-          "Please wait 5-10 minutes or use a 'Test Phone Number' in your Firebase Console to bypass limits."
-        );
-      } else {
-        setError(err.message || "An error occurred during verification.");
-      }
-      
-      // Cleanup on error to prevent broken states
-      if (recaptchaVerifier.current) {
-        try { recaptchaVerifier.current.clear(); } catch (e) {}
-        recaptchaVerifier.current = null;
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleOtpVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!confirmationResult || !formData.otp) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const result = await confirmationResult.confirm(formData.otp);
-      if (isSignUp) {
-        await updateProfile(result.user, { displayName: formData.displayName });
-      }
-      await syncUserProfile(result.user, formData.displayName, role);
-      
-      const userDoc = await getDoc(doc(db, 'users', result.user.uid));
-      if (userDoc.exists()) {
-        const userProfile = userDoc.data() as UserProfile;
-        navigate(userProfile.role === UserRole.ADMIN ? '/admin' : userProfile.role === UserRole.OWNER ? '/owner' : '/tenant');
-      } else {
-        navigate('/');
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (authMethod === 'phone') {
-      if (!confirmationResult) return handlePhoneAuth(e);
-      return handleOtpVerify(e);
-    }
-
     setIsLoading(true);
     setError(null);
 
@@ -208,8 +112,9 @@ export default function Auth() {
       if (isSignUp) {
         const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
         await updateProfile(userCredential.user, { displayName: formData.displayName });
+        await sendEmailVerification(userCredential.user);
         await syncUserProfile(userCredential.user, formData.displayName, role);
-        navigate(role === UserRole.ADMIN ? '/admin' : role === UserRole.OWNER ? '/owner' : '/tenant');
+        navigate('/verify-email');
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
         const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
@@ -256,9 +161,6 @@ export default function Auth() {
 
   return (
     <div className="flex min-h-screen overflow-hidden bg-white">
-      {/* Hidden reCAPTCHA container */}
-      <div id="recaptcha-container"></div>
-
       {/* Visual Side */}
       <div className="relative hidden w-1/2 lg:block">
         <img 
@@ -306,53 +208,28 @@ export default function Auth() {
       </div>
 
       {/* Form Side */}
-      <div className="flex w-full flex-col items-center justify-center px-4 py-20 lg:w-1/2 overflow-y-auto">
+      <div className="flex w-full flex-col items-center justify-center px-4 py-20 lg:w-1/2">
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           className="w-full max-w-md space-y-10"
         >
           {/* Mobile Header */}
-          <div className="flex items-center gap-2 lg:hidden mb-10">
+          <div className="flex items-center gap-2 lg:hidden mb-12">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-600 text-white">
               <Home className="h-5 w-5" />
             </div>
             <span className="text-lg font-black uppercase tracking-tighter italic">RoomZy</span>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-5xl font-black uppercase tracking-tighter text-neutral-900 leading-none">
-                {isSignUp ? 'Create' : 'Sign In'}<br/>
-                <span className="text-orange-600 italic">Account.</span>
-              </h2>
-              <p className="mt-4 text-neutral-500 font-medium">
-                {isSignUp ? 'Join the most elite rental network.' : 'Welcome back to your dashboard.'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4 p-1 bg-neutral-100 rounded-2xl">
-            <button
-              onClick={() => { setAuthMethod('email'); setConfirmationResult(null); }}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-                authMethod === 'email' ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-400 hover:text-neutral-600"
-              )}
-            >
-              <Mail className="h-4 w-4" />
-              Email
-            </button>
-            <button
-              onClick={() => { setAuthMethod('phone'); setConfirmationResult(null); }}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-                authMethod === 'phone' ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-400 hover:text-neutral-600"
-              )}
-            >
-              <Smartphone className="h-4 w-4" />
-              Phone
-            </button>
+          <div>
+            <h2 className="text-5xl font-black uppercase tracking-tighter text-neutral-900 leading-none">
+              {isSignUp ? 'Create' : 'Sign In'}<br/>
+              <span className="text-orange-600 italic">Account.</span>
+            </h2>
+            <p className="mt-4 text-neutral-500 font-medium">
+              {isSignUp ? 'Join the most elite rental network in India.' : 'Welcome back to your premium dashboard.'}
+            </p>
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
@@ -404,116 +281,84 @@ export default function Auth() {
                 </div>
               )}
 
-              {authMethod === 'email' ? (
-                <>
-                  <div className="group space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 group-focus-within:text-orange-600">Email</label>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-4 h-5 w-5 text-neutral-300 group-focus-within:text-orange-600" />
-                      <input
-                        name="email"
-                        type="email"
-                        placeholder="Enter your email"
-                        required
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        className="w-full rounded-2xl border-2 border-neutral-100 bg-neutral-50/50 py-4 pl-12 pr-4 text-sm font-bold outline-none transition-all focus:border-orange-600 focus:bg-white"
-                      />
-                    </div>
+              <div className="group space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 group-focus-within:text-orange-600">Email Address</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-4 top-4 h-5 w-5 text-neutral-300 group-focus-within:text-orange-600" />
+                    <input
+                      name="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      required
+                      value={formData.email}
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        setEmailValidationStatus('idle');
+                      }}
+                      className="w-full rounded-2xl border-2 border-neutral-100 bg-neutral-50/50 py-4 pl-12 pr-4 text-sm font-bold outline-none transition-all focus:border-orange-600 focus:bg-white"
+                    />
                   </div>
-
-                  <div className="group space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 group-focus-within:text-orange-600">Password</label>
-                    <div className="relative">
-                      <Lock className="absolute left-4 top-4 h-5 w-5 text-neutral-300 group-focus-within:text-orange-600" />
-                      <input
-                        name="password"
-                        type="password"
-                        placeholder="Enter your password"
-                        required
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        className="w-full rounded-2xl border-2 border-neutral-100 bg-neutral-50/50 py-4 pl-12 pr-4 text-sm font-bold outline-none transition-all focus:border-orange-600 focus:bg-white"
-                      />
-                    </div>
-                    {!isSignUp && (
-                      <div className="flex justify-end pt-2">
-                        <Link to="/forgot-password" title="Recover Access" className="text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-orange-600 transition-colors">
-                          Recover Access
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-4">
-                  <div className="group space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 group-focus-within:text-orange-600">Phone Number</label>
-                    <div className="relative">
-                      <Smartphone className="absolute left-4 top-4 h-5 w-5 text-neutral-300 group-focus-within:text-orange-600" />
-                      <input
-                        name="phoneNumber"
-                        type="tel"
-                        disabled={!!confirmationResult}
-                        placeholder="+91 98765 43210"
-                        required
-                        value={formData.phoneNumber}
-                        onChange={handleInputChange}
-                        className="w-full rounded-2xl border-2 border-neutral-100 bg-neutral-50/50 py-4 pl-12 pr-4 text-sm font-bold outline-none transition-all focus:border-orange-600 focus:bg-white disabled:opacity-50"
-                      />
-                      {confirmationResult && (
-                        <button 
-                          type="button"
-                          onClick={() => setConfirmationResult(null)}
-                          className="absolute right-4 top-4 text-xs font-bold text-orange-600 underline"
-                        >
-                          Change
-                        </button>
+                  {isSignUp && (
+                    <button
+                      type="button"
+                      onClick={validateEmailId}
+                      disabled={isValidatingEmail}
+                      className={cn(
+                        "rounded-2xl px-6 font-black uppercase tracking-tighter text-sm transition-all active:scale-95 disabled:opacity-50",
+                        emailValidationStatus === 'valid' 
+                          ? "bg-green-600/10 text-green-600 border-2 border-green-600/20" 
+                          : "bg-neutral-900 text-white hover:bg-orange-600"
                       )}
-                    </div>
-                  </div>
-
-                  <AnimatePresence>
-                    {confirmationResult && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="group space-y-1"
-                      >
-                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 group-focus-within:text-orange-600">OTP Code</label>
-                        <div className="relative">
-                          <Check className="absolute left-4 top-4 h-5 w-5 text-neutral-300 group-focus-within:text-orange-600" />
-                          <input
-                            name="otp"
-                            type="text"
-                            placeholder="Enter 6-digit OTP"
-                            required
-                            maxLength={6}
-                            value={formData.otp}
-                            onChange={handleInputChange}
-                            className="w-full rounded-2xl border-2 border-neutral-100 bg-neutral-50/50 py-4 pl-12 pr-4 text-sm font-bold outline-none transition-all focus:border-orange-600 focus:bg-white"
-                          />
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                    >
+                      {isValidatingEmail ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : emailValidationStatus === 'valid' ? (
+                        'Valid'
+                      ) : (
+                        'Validate'
+                      )}
+                    </button>
+                  )}
                 </div>
-              )}
+                {isSignUp && emailValidationStatus === 'valid' && (
+                  <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest mt-1 ml-4">
+                    Email validated! Proceeding to account creation.
+                  </p>
+                )}
+              </div>
+
+              <div className="group space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 group-focus-within:text-orange-600">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-4 h-5 w-5 text-neutral-300 group-focus-within:text-orange-600" />
+                  <input
+                    name="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    required
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className="w-full rounded-2xl border-2 border-neutral-100 bg-neutral-50/50 py-4 pl-12 pr-4 text-sm font-bold outline-none transition-all focus:border-orange-600 focus:bg-white"
+                  />
+                </div>
+                {!isSignUp && (
+                  <div className="flex justify-end pt-2">
+                    <Link to="/forgot-password" title="Recover Access" className="text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-orange-600 transition-colors">
+                      Recover Access
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
 
             {error && (
               <motion.div 
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className={cn(
-                  "rounded-2xl p-4 text-[10px] font-bold uppercase tracking-widest border",
-                  error.includes("ACTION REQUIRED") ? "bg-orange-50 text-orange-700 border-orange-200" : "bg-red-50 text-red-600 border-red-100"
-                )}
+                className="rounded-2xl bg-red-50 p-4 text-[10px] font-bold uppercase tracking-widest text-red-600 border border-red-100"
               >
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className={cn("h-4 w-4 shrink-0", error.includes("ACTION REQUIRED") ? "text-orange-600" : "text-red-500")} />
-                  <p className="leading-relaxed">{error}</p>
-                </div>
+                {error}
               </motion.div>
             )}
 
@@ -539,9 +384,7 @@ export default function Auth() {
                     exit={{ opacity: 0 }}
                     className="flex items-center gap-2 text-lg"
                   >
-                    {authMethod === 'phone' 
-                      ? (confirmationResult ? 'Verify OTP' : 'Send OTP')
-                      : (isSignUp ? 'Initialize Account' : 'Authenticate')}
+                    {isSignUp ? 'Send Verification Link' : 'Authenticate'}
                     <ArrowRight className="h-6 w-6 transition-transform group-hover:translate-x-2" />
                   </motion.div>
                 )}
@@ -582,7 +425,7 @@ export default function Auth() {
             </p>
           </div>
 
-          <div className="flex items-center justify-center gap-4 py-8 text-neutral-300">
+          <div className="flex items-center justify-center gap-4 pt-12 text-neutral-300">
               <Shield className="h-4 w-4" />
               <CheckCircle2 className="h-4 w-4" />
               <Sparkles className="h-4 w-4" />

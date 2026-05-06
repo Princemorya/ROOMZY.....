@@ -13,6 +13,7 @@ import OwnerDashboard from './pages/OwnerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Messages from './pages/Messages';
 import Profile from './pages/Profile';
+import VerifyEmail from './pages/VerifyEmail';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { UserRole } from './types';
 
@@ -27,16 +28,24 @@ function AppRoutes() {
     );
   }
 
+  const isUnverified = user && !user.emailVerified;
+
   return (
-    <Layout user={profile ? { role: profile.role, displayName: profile.displayName } : null}>
+    <Layout 
+      user={profile ? { role: profile.role, displayName: profile.displayName } : null}
+      isVerified={user?.emailVerified}
+    >
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/login" element={profile ? (
+          isUnverified ? <Navigate to="/verify-email" /> :
           profile.role === UserRole.ADMIN ? <Navigate to="/admin" /> : 
           profile.role === UserRole.OWNER ? <Navigate to="/owner" /> : 
           <Navigate to="/tenant" />
         ) : <Auth />} />
         <Route path="/signup" element={profile ? (
+          isUnverified ? <Navigate to="/verify-email" /> :
           profile.role === UserRole.ADMIN ? <Navigate to="/admin" /> : 
           profile.role === UserRole.OWNER ? <Navigate to="/owner" /> : 
           <Navigate to="/tenant" />
@@ -49,15 +58,15 @@ function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         
         {/* Protected Routes */}
-        <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
-        <Route path="/messages" element={user ? <Messages /> : <Navigate to="/login" />} />
+        <Route path="/profile" element={user ? (isUnverified ? <Navigate to="/verify-email" /> : <Profile />) : <Navigate to="/login" />} />
+        <Route path="/messages" element={user ? (isUnverified ? <Navigate to="/verify-email" /> : <Messages />) : <Navigate to="/login" />} />
         
         {/* Dashboards (Role Protected) */}
         <Route 
           path="/tenant/*" 
           element={
             profile?.role === UserRole.TENANT 
-              ? <TenantDashboard /> 
+              ? (isUnverified ? <Navigate to="/verify-email" /> : <TenantDashboard />)
               : <Navigate to={profile?.role === UserRole.OWNER ? "/owner" : "/"} />
           } 
         />
@@ -65,7 +74,7 @@ function AppRoutes() {
           path="/owner/*" 
           element={
             profile?.role === UserRole.OWNER 
-              ? <OwnerDashboard /> 
+              ? (isUnverified ? <Navigate to="/verify-email" /> : <OwnerDashboard />)
               : <Navigate to={profile?.role === UserRole.TENANT ? "/tenant" : "/"} />
           } 
         />
@@ -73,7 +82,7 @@ function AppRoutes() {
           path="/admin/*" 
           element={
             profile?.role === UserRole.ADMIN 
-              ? <AdminDashboard /> 
+              ? (isUnverified ? <Navigate to="/verify-email" /> : <AdminDashboard />)
               : <Navigate to="/" />
           } 
         />

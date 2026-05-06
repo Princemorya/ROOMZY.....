@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Phone, Wallet, Shield, MapPin, Camera, Lock, ExternalLink, AlertCircle, CheckCircle } from 'lucide-react';
+import { User, Mail, Wallet, Shield, MapPin, Camera, Lock, ExternalLink, AlertCircle, CheckCircle } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { sendPasswordResetEmail, updateProfile } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -19,7 +19,6 @@ export default function Profile() {
   
   const [formData, setFormData] = useState({
     displayName: '',
-    phone: '',
     upiId: '',
     bio: ''
   });
@@ -30,7 +29,6 @@ export default function Profile() {
     if (profile) {
       setFormData({
         displayName: profile.displayName || '',
-        phone: profile.phone || '',
         upiId: profile.upiId || '',
         bio: profile.bio || ''
       });
@@ -156,18 +154,6 @@ export default function Profile() {
                   disabled
                   value={profile?.email}
                   className="w-full rounded-2xl border border-neutral-100 py-4 pl-12 pr-4 bg-neutral-50 text-neutral-400"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-neutral-900 uppercase tracking-wide">Phone Number</label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-400" />
-                <input 
-                  value={formData.phone}
-                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full rounded-2xl border border-neutral-200 py-4 pl-12 pr-4 focus:border-orange-500 outline-none transition-all"
-                  placeholder="+91"
                 />
               </div>
             </div>

@@ -9,25 +9,28 @@ interface NavbarProps {
     role: UserRole;
     displayName: string;
   } | null;
+  isVerified?: boolean;
 }
 
-export default function Navbar({ user }: NavbarProps) {
+export default function Navbar({ user, isVerified }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   const navLinks = [
-    { title: 'Find Rooms', href: '/search', icon: Search, roles: [UserRole.TENANT, UserRole.ADMIN] },
-    { title: 'About', href: '/about', icon: Home, roles: [UserRole.TENANT, UserRole.OWNER, UserRole.ADMIN] },
-    { title: 'Contact', href: '/contact', icon: MessageSquare, roles: [UserRole.TENANT, UserRole.OWNER, UserRole.ADMIN] },
-    { title: 'My Bookings', href: '/tenant/bookings', icon: Home, roles: [UserRole.TENANT] },
-    { title: 'My Listings', href: '/owner/listings', icon: Home, roles: [UserRole.OWNER] },
-    { title: 'Messages', href: '/messages', icon: MessageSquare, roles: [UserRole.TENANT, UserRole.OWNER] },
-    { title: 'Admin Panel', href: '/admin', icon: ShieldCheck, roles: [UserRole.ADMIN] },
+    { title: 'Find Rooms', href: '/search', icon: Search, roles: [UserRole.TENANT, UserRole.ADMIN], requiresVerified: true },
+    { title: 'About', href: '/about', icon: Home, roles: [UserRole.TENANT, UserRole.OWNER, UserRole.ADMIN], requiresVerified: false },
+    { title: 'Contact', href: '/contact', icon: MessageSquare, roles: [UserRole.TENANT, UserRole.OWNER, UserRole.ADMIN], requiresVerified: false },
+    { title: 'My Bookings', href: '/tenant/bookings', icon: Home, roles: [UserRole.TENANT], requiresVerified: true },
+    { title: 'My Listings', href: '/owner/listings', icon: Home, roles: [UserRole.OWNER], requiresVerified: true },
+    { title: 'Messages', href: '/messages', icon: MessageSquare, roles: [UserRole.TENANT, UserRole.OWNER], requiresVerified: true },
+    { title: 'Admin Panel', href: '/admin', icon: ShieldCheck, roles: [UserRole.ADMIN], requiresVerified: true },
   ];
 
-  const filteredLinks = navLinks.filter(link => 
-    !user || link.roles.includes(user.role)
-  );
+  const filteredLinks = navLinks.filter(link => {
+    const roleMatch = !user || link.roles.includes(user.role);
+    const verificationMatch = !user || (link.requiresVerified ? isVerified : true);
+    return roleMatch && verificationMatch;
+  });
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">

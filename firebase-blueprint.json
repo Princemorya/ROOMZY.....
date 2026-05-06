@@ -10,12 +10,8 @@
         "displayName": { "type": "string" },
         "role": { "type": "string", "enum": ["admin", "owner", "tenant"] },
         "photoURL": { "type": "string" },
-        "phone": { "type": "string" },
         "upiId": { "type": "string" },
         "bio": { "type": "string" },
-        "governmentIdUrl": { "type": "string" },
-        "verificationStatus": { "type": "string", "enum": ["unverified", "pending", "verified", "rejected"] },
-        "verificationComment": { "type": "string" },
         "createdAt": { "type": "number" },
         "updatedAt": { "type": "number" }
       },

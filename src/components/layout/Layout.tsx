@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link as RouterLink } from 'react-router-dom';
 import Navbar from './Navbar';
 import { UserRole } from '@/src/types';
-import { Phone, Mail, MapPin } from 'lucide-react';
+import { Mail, MapPin } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,12 +11,13 @@ interface LayoutProps {
     role: UserRole;
     displayName: string;
   } | null;
+  isVerified?: boolean;
 }
 
-export default function Layout({ children, user }: LayoutProps) {
+export default function Layout({ children, user, isVerified }: LayoutProps) {
   return (
     <div className="min-h-screen bg-neutral-50 font-sans text-neutral-900 selection:bg-orange-100 selection:text-orange-900">
-      <Navbar user={user} />
+      <Navbar user={user} isVerified={isVerified} />
       <main className="mx-auto max-w-7xl">
         <AnimatePresence mode="wait">
           <motion.div
@@ -53,10 +54,6 @@ export default function Layout({ children, user }: LayoutProps) {
             <div className="col-span-1 md:col-span-2">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900">Contact Information</h3>
               <div className="mt-4 grid gap-4 text-sm text-gray-500 sm:grid-cols-2">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-orange-600" />
-                  <span>+91 7017460028</span>
-                </div>
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-orange-600" />
                   <span>Roomzy@gmail.com</span>

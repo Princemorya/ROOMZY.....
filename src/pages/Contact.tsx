@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Phone, Mail, MapPin, Send, MessageSquare } from 'lucide-react';
+import { Mail, MapPin, Send, MessageSquare } from 'lucide-react';
 
 export default function Contact() {
   const handleSubmit = (e: React.FormEvent) => {
@@ -33,19 +33,6 @@ export default function Contact() {
           {/* Contact Information */}
           <div className="space-y-8">
             <div className="grid gap-6">
-              <motion.div 
-                whileHover={{ scale: 1.02 }}
-                className="flex items-start gap-5 rounded-3xl border border-neutral-100 bg-white p-6 shadow-sm transition-all hover:shadow-md"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
-                  <Phone className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-neutral-900">Call Us</h3>
-                  <p className="mt-1 text-neutral-600">+91 7017460028</p>
-                  <p className="text-sm text-neutral-500">Mon-Sun, 9am to 9pm</p>
-                </div>
-              </motion.div>
 
               <motion.div 
                 whileHover={{ scale: 1.02 }}
